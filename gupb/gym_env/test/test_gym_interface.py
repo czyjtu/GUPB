@@ -111,3 +111,16 @@ def test_if_queue_controller_works_from_different_thread(empty_knowledge):
     assert knowledge_queue.get(block=True) == o3
     action_queue.put(characters.Action.ATTACK)
     thread.join()
+
+
+@pytest.mark.parametrize("action", [AgentAction.STEP_FORWARD, AgentAction.TURN_LEFT, AgentAction.TURN_RIGHT])
+def test_if_forward_action_takes_effect(env, action):
+    # this test is not deterministic, sometimes agent is spawned in front of a wall and forward do nothing
+    obs1, _ = env.reset()
+    obs2, *_ = env.step(action.value)
+    obs3, *_ = env.step(action.value)
+
+    coord1 = obs1["view"]
+    coord2 = obs2["view"]
+    coord3 = obs3["view"]
+    assert coord2 != coord3 != coord1
