@@ -10,27 +10,58 @@ from  gupb.gym_env.gym_env import AgentAction, EnvConfig, QueueController
 from gupb.model import characters
 from gupb.model.characters import ChampionKnowledge
 
+
 @pytest.fixture
 def env():
     env = gym.make(
         "GUPB-v0", 
         config=EnvConfig(
-            arenas=["lone_sanctum"], 
+            arenas=["lone_sanctum", "ordinary_chaos"], 
             controllers=[random.RandomController("Alice"), random.RandomController("Bob")]
         )
     )
     yield env 
     env.close()
 
+
 @pytest.fixture 
 def empty_knowledge():
     return ChampionKnowledge((0, 0), 0, {})
 
 
+def test_env_close_the_thread(env):
+    assert threading.active_count() == 1
+    env.reset()
+    assert threading.active_count() == 2
+    env.close()
+    assert threading.active_count() == 1
+
+
+def test_if_reset_joins_the_thread(env):
+    assert threading.active_count() == 1
+
+    env.reset()
+    assert threading.active_count() == 2
+
+    env.reset()
+    env.reset()
+    assert threading.active_count() == 2
+
+    env.step(AgentAction.TURN_LEFT.value)
+    env.step(AgentAction.TURN_LEFT.value)
+    assert threading.active_count() == 2
+
+    env.step(AgentAction.TURN_LEFT.value)
+    env.reset()
+    assert threading.active_count() == 2
+
+    env.close()
+    assert threading.active_count() == 1
+
+
 def test_env_build_successfully(env):
     assert env is not None
     assert env.reset() is not None
-
 
 
 def test_reset_return_arena_and_view(env):

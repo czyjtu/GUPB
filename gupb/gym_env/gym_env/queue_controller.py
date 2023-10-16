@@ -22,8 +22,8 @@ class QueueController(controller.Controller):
         return characters.Tabard.PINK
 
     def decide(self, knowledge: ChampionKnowledge) -> characters.Action:
-        self.knowledge_queue.put(knowledge)
-        return self.action_queue.get(block=True, timeout=self.ACTION_TIMEOUT)
+        self.knowledge_queue.put(knowledge, block=True, timeout=self.ACTION_TIMEOUT)
+        return self.action_queue.get(block=True, timeout=self.ACTION_TIMEOUT)  
 
     def praise(self, score: int) -> None:
         pass
