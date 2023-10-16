@@ -6,7 +6,7 @@ import pytest
 import gym 
 
 from gupb.controller import random
-from  gupb.gym_env.gym_env import AgentAction, EnvConfig, QueueController
+from  gupb.gym_env.gym_env import AgentAction, EnvConfig, GUPBEnv, QueueController
 from gupb.model import characters
 from gupb.model.characters import ChampionKnowledge
 
@@ -18,6 +18,20 @@ def env():
         config=EnvConfig(
             arenas=["lone_sanctum", "ordinary_chaos"], 
             controllers=[random.RandomController("Alice"), random.RandomController("Bob")]
+        )
+    )
+    yield env 
+    env.close()
+
+
+@pytest.fixture
+def balancing_env():
+    env = gym.make(
+        "GUPB-v0", 
+        config=EnvConfig(
+            arenas=["lone_sanctum", "ordinary_chaos"], 
+            controllers=[random.RandomController("Alice"), random.RandomController("Bob")],
+            start_balancing=True
         )
     )
     yield env 
@@ -144,9 +158,8 @@ def test_if_queue_controller_works_from_different_thread(empty_knowledge):
     thread.join()
 
 
-@pytest.mark.parametrize("action", [AgentAction.STEP_FORWARD, AgentAction.TURN_LEFT, AgentAction.TURN_RIGHT])
-def test_if_forward_action_takes_effect(env, action):
-    # this test is not deterministic, sometimes agent is spawned in front of a wall and forward do nothing
+@pytest.mark.parametrize("action", [AgentAction.TURN_LEFT, AgentAction.TURN_RIGHT])
+def test_if_turn_action_takes_effect(env, action):
     obs1, _ = env.reset()
     obs2, *_ = env.step(action.value)
     obs3, *_ = env.step(action.value)
@@ -155,3 +168,41 @@ def test_if_forward_action_takes_effect(env, action):
     coord2 = obs2["view"]
     coord3 = obs3["view"]
     assert coord2 != coord3 != coord1
+
+@pytest.mark.parametrize("action", [AgentAction.STEP_FORWARD])
+def test_if_forward_action_takes_effect(env, action):
+    max_tries = 5
+    # loop until terrain passable 
+    for _ in range(max_tries):
+        obs1, _ = env.reset()
+        current_coord = obs1["view"].position
+        next_coord = current_coord + obs1["view"].visible_tiles[current_coord].character.facing.value
+        next_tile = obs1["view"].visible_tiles[next_coord]
+        if next_tile.type in ["land", "menhir"] and next_tile.character is None:
+            break
+
+    obs2, *_ = env.step(action.value)
+    assert obs2["view"].position == next_coord
+
+
+def test_if_balancing_works_properly(balancing_env: GUPBEnv):
+    # we have 3 controllers, therefore each map is played 3 times with different controllers order
+    obs11, _ = balancing_env.reset()
+    controllers_order11 = balancing_env.controllers_order.copy()
+    obs12, _ = balancing_env.reset()
+    controllers_order12 = balancing_env.controllers_order.copy()
+    obs13, _ = balancing_env.reset()
+    controllers_order13 = balancing_env.controllers_order.copy()
+    assert obs11["arena"] == obs12["arena"]  == obs13["arena"]
+    assert controllers_order11 != controllers_order12 != controllers_order13
+
+    # now we hould start new random map, and play it 3 times with different controllers order 
+    obs21, _ = balancing_env.reset()
+    controllers_order21 = balancing_env.controllers_order.copy()
+    assert controllers_order13 != controllers_order21
+    obs22, _ = balancing_env.reset()
+    controllers_order22 = balancing_env.controllers_order.copy()
+    obs23, _ = balancing_env.reset()
+    controllers_order23 = balancing_env.controllers_order.copy()
+    assert obs21["arena"] == obs22["arena"]  == obs23["arena"]
+    assert controllers_order21 != controllers_order22 != controllers_order23

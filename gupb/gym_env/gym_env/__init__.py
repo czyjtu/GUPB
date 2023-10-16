@@ -1,16 +1,17 @@
 from dataclasses import dataclass
 from enum import Enum
+import random
 import gym 
 from gym.envs.registration import register
 import gym.spaces 
 import queue 
-import threading 
+import threading
+
 
 from gupb import controller
 from gupb.model import characters
 from gupb.model import arenas, games
 from gupb.model.characters import ChampionKnowledge
-from gupb.model.coordinates import Coords
 from gupb.gym_env.gym_env.queue_controller import QueueController
 
 
@@ -40,7 +41,7 @@ class DescriptionSpace(gym.spaces.Space):
         return None
 
     def contains(self, x):
-        return isinstance(x, arenas.ArenaDescription)
+        return isinstance(x, str)
 
     def __repr__(self):
         return f"ViewSpace"
@@ -68,6 +69,7 @@ AgentAction2Action = {
 class EnvConfig:
     arenas: list[str]
     controllers: list[controller.Controller]
+    start_balancing: bool = True 
 
 
 def run_game(game, stop_event: threading.Event):
@@ -83,13 +85,32 @@ class GUPBEnv(gym.Env):
         config: EnvConfig
     ):
         self.config: EnvConfig = config
+        self.controllers_order = list(range(len(self.config.controllers) + 1)) # index 0 = queue controller
         self.game_thread = None
+        self.game_no = 0
+
 
     def _new_game(self, queue_controller: QueueController):
-        return games.Game(
-            self.config.arenas[0], 
-            self.config.controllers + [queue_controller]
-        )
+        # code partly copied from gupg/runner.py:Runner.run_game
+        if not self.config.start_balancing or self.game_no % (len(self.config.controllers) + 1) == 0:
+            arena = random.choice(self.config.arenas)
+            random.shuffle(self.controllers_order)
+            controllers = [(self.config.controllers[i - 1] if i != 0 else queue_controller) for i in self.controllers_order]
+            game = games.Game(arena, controllers)
+        else:
+            self.controllers_order = self.controllers_order[1:] + [self.controllers_order[0]]
+            controllers = [(self.config.controllers[i - 1] if i != 0 else queue_controller) for i in self.controllers_order]
+            game = games.Game(
+                self._last_arena,
+                controllers,
+                self._last_menhir_position,
+                self._last_initial_positions
+            )
+        self._last_arena = game.arena.name
+        self._last_menhir_position = game.arena.menhir_position
+        self._last_initial_positions = game.initial_champion_positions
+        self.game_no += 1
+        return game
     
 
     @property
@@ -137,6 +158,8 @@ class GUPBEnv(gym.Env):
 
     def close(self):
         self.stop_event.set()
+        if self.game_thread is not None:
+            self.game_thread.join()
 
 register(
      id='GUPB-v0',
