@@ -1,1 +1,1 @@
-from gupb.controller.noname.policy.cnn import CNNPolicy
+from gupb.controller.noname.policy.cnn import CNNEncoder

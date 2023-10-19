@@ -15,12 +15,12 @@ def ConvBlockNormalizeDrop(in_channels: int, n_filters: int, activation: tp.Lite
         th.nn.Dropout2d(p)
     )
 
-class CNNPolicy(th.nn.Module):
-    def __init__(self, actions_num: int, *args, **kwargs) -> None:
+class CNNEncoder(th.nn.Module):
+    def __init__(self, latent_size: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.conv1 = ConvBlockNormalizeDrop(3, 8, "relu", 0.2)
         self.conv2 = ConvBlockNormalizeDrop(8, 32, "relu", 0.2, gap=True)
-        self.linear = th.nn.Linear(32, actions_num)
+        self.linear = th.nn.Linear(32, latent_size)
 
     def forward(self, X: th.Tensor) -> th.Tensor:
         X = self.conv1(X)

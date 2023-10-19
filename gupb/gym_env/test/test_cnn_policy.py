@@ -1,10 +1,10 @@
 import pytest 
 import torch as th 
-from gupb.controller.noname.policy import CNNPolicy
+from gupb.controller.noname.policy import CNNEncoder
 
 @pytest.fixture 
 def network():
-    return CNNPolicy(5).eval()
+    return CNNEncoder(5).eval()
 
 def test_cnn_network_returns_tensor(network):
     observation = th.rand(1, 3, 10, 10)
@@ -30,5 +30,5 @@ def test_cnn_returns_same_actions_for_same_inputs_and_different_for_different(X,
 
 @pytest.mark.parametrize("actions_num", [1, 5, 10])
 def test_network_output_can_be_adjusted(actions_num):
-    net = CNNPolicy(actions_num=actions_num)
+    net = CNNEncoder(latent_size=actions_num)
     assert net(th.rand(1, 3, 10, 10)).shape[1] == actions_num
