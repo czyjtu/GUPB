@@ -92,3 +92,10 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = CustomNetwork(self.features_dim, self.action_space.n, self.action_space.n)
+
+
+def extract_atoms_from_ppo_model(model: PPO) -> tuple[CNNEncoder, th.nn.Module, th.nn.Module]:
+    encoder = model.policy.features_extractor.cnn_encoder
+    actor = model.policy.mlp_extractor.policy_net
+    critic = model.policy.mlp_extractor.value_net
+    return encoder, actor, critic

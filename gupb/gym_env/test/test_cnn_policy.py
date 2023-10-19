@@ -1,7 +1,7 @@
 import pytest 
 import torch as th 
 from gupb.controller.noname.policy import CNNEncoder
-from gupb.gym_env.agent.actor_critic import CustomActorCriticPolicy, CustomFeatureExtractor
+from gupb.gym_env.agent.actor_critic import CustomActorCriticPolicy, CustomFeatureExtractor, extract_atoms_from_ppo_model
 from stable_baselines3 import PPO
 from stable_baselines3.common.policies import ActorCriticPolicy
 from gupb.gym_env.agent.actor_critic import CustomNetwork
@@ -74,4 +74,46 @@ def test_custom_feature_extractor_can_be_used_in_PPO():
     for i in range(10):
         action, _states = model.predict(obs, deterministic=True)
         obs, rewards, dones, truncated, info = env.step(action)
-    env.close()
+
+
+def test_trained_policy_is_loaded_from_file_properly(tmp_path):
+    features_dim = 64 # it is latent size for CNNEncoder    
+
+    env = MockEnv(gym.spaces.Box(low=0, high=1, shape=(3, 10, 10)), gym.spaces.Discrete(3))
+    model = PPO(
+        CustomActorCriticPolicy,
+        env,
+        policy_kwargs=dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=features_dim),
+        ),
+    )
+    model.learn(total_timesteps=5)
+    model.save(tmp_path / "ppo_custom")
+
+    model2 = PPO.load(tmp_path / "ppo_custom")
+    obs, _ = env.reset()
+    assert model.predict(obs, deterministic=True) == model2.predict(obs, deterministic=True)
+
+
+def test_wether_custom_networks_are_extracted_properly_from_ppo():
+    features_dim = 64 # it is latent size for CNNEncoder    
+
+    env = MockEnv(gym.spaces.Box(low=0, high=1, shape=(3, 10, 10)), gym.spaces.Discrete(3))
+    model = PPO(
+        CustomActorCriticPolicy,
+        env,
+        policy_kwargs=dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=features_dim),
+        ),
+    )
+    model.learn(total_timesteps=5)
+    
+    encoder, actor, critic = extract_atoms_from_ppo_model(model)
+    assert isinstance(encoder, CNNEncoder)
+    assert isinstance(actor, th.nn.Module)
+    assert isinstance(critic, th.nn.Module)
+
+
+def test_wether_
