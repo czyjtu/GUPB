@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
 import random
-import gym 
-from gym.envs.registration import register
-import gym.spaces 
+import gymnasium as gym 
+from gymnasium.envs.registration import register
+import gymnasium.spaces 
 import queue 
 import threading
 

@@ -3,7 +3,7 @@ import threading
 import time
 import numpy as np
 import pytest 
-import gym 
+import gymnasium as gym
 
 from gupb.controller import random
 from  gupb.gym_env.gym_env import AgentAction, EnvConfig, GUPBEnv, QueueController

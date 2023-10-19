@@ -16,9 +16,9 @@ def ConvBlockNormalizeDrop(in_channels: int, n_filters: int, activation: tp.Lite
     )
 
 class CNNEncoder(th.nn.Module):
-    def __init__(self, latent_size: int, *args, **kwargs) -> None:
+    def __init__(self, channels: int, latent_size: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.conv1 = ConvBlockNormalizeDrop(3, 8, "relu", 0.2)
+        self.conv1 = ConvBlockNormalizeDrop(channels, 8, "relu", 0.2)
         self.conv2 = ConvBlockNormalizeDrop(8, 32, "relu", 0.2, gap=True)
         self.linear = th.nn.Linear(32, latent_size)
 
