@@ -16,3 +16,7 @@ tqdm==4.66.1
 gym==0.26.2
 pytest==7.4.2
 pytest-timeout
+stable-baselines3==2.1.0
+torch==2.1.0
+torchaudio==2.1.0
+torchvision==0.16.0
