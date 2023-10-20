@@ -1,7 +1,7 @@
 import pytest 
 import torch as th 
 from gupb.controller.noname.policy import CNNEncoder
-from gupb.gym_env.agent.actor_critic import CustomActorCriticPolicy, CustomFeatureExtractor, extract_atoms_from_ppo_model
+from gupb.gym_env.agent.actor_critic import CustomActorCriticPolicy, CustomFeatureExtractor, extract_atoms_from_ppo_model, PPO2TorchPolicy
 from stable_baselines3 import PPO
 from stable_baselines3.common.policies import ActorCriticPolicy
 from gupb.gym_env.agent.actor_critic import CustomNetwork
@@ -66,6 +66,8 @@ def test_custom_feature_extractor_can_be_used_in_PPO():
         policy_kwargs=dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs=dict(features_dim=features_dim),
+            actor_arch=[5],
+            critic_arch=[5],
         ),
     )
     model.learn(total_timesteps=5)
@@ -86,6 +88,8 @@ def test_trained_policy_is_loaded_from_file_properly(tmp_path):
         policy_kwargs=dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs=dict(features_dim=features_dim),
+            actor_arch=[5],
+            critic_arch=[5],
         ),
     )
     model.learn(total_timesteps=5)
@@ -106,14 +110,56 @@ def test_wether_custom_networks_are_extracted_properly_from_ppo():
         policy_kwargs=dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs=dict(features_dim=features_dim),
+            actor_arch=[5],
+            critic_arch=[5],
         ),
     )
     model.learn(total_timesteps=5)
     
-    encoder, actor, critic = extract_atoms_from_ppo_model(model)
+    encoder, actor, critic, action_net = extract_atoms_from_ppo_model(model)
     assert isinstance(encoder, CNNEncoder)
     assert isinstance(actor, th.nn.Module)
     assert isinstance(critic, th.nn.Module)
+    assert isinstance(action_net, th.nn.Module)
 
 
-def test_wether_
+def test_wether_torch_actor_critic_policy_returns_the_same_action_as_ppo_policy():
+    features_dim = 64 # it is latent size for CNNEncoder    
+    env = MockEnv(gym.spaces.Box(low=0, high=1, shape=(3, 10, 10)), gym.spaces.Discrete(3))
+    model = PPO(
+        CustomActorCriticPolicy,
+        env,
+        policy_kwargs=dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=features_dim),
+            actor_arch=[5],
+            critic_arch=[5],
+        ),
+    )
+    model.learn(total_timesteps=5)
+    torchPolicy = PPO2TorchPolicy(model)
+
+    obs, _ = env.reset()
+    pred, _ = model.predict(obs, deterministic=True)
+    assert pred == torchPolicy(th.Tensor(obs).unsqueeze(0)).numpy()
+
+
+@pytest.mark.parametrize("latent_size", [1, 10, 256])
+def test_if_actor_network_latent_size_is_independent_of_action_space(latent_size):
+    features_dim = 64 # it is latent size for CNNEncoder    
+    env = MockEnv(gym.spaces.Box(low=0, high=1, shape=(3, 10, 10)), gym.spaces.Discrete(3))
+    model = PPO(
+        CustomActorCriticPolicy,
+        env,
+        policy_kwargs=dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=features_dim),
+            actor_arch=[latent_size],
+            critic_arch=[latent_size],
+        ),
+    )
+    model.learn(total_timesteps=5)
+    encoder, actor, critic, action_net = extract_atoms_from_ppo_model(model)
+    assert actor(th.rand(1, features_dim)).shape[1] == latent_size
+    assert critic(th.rand(1, features_dim)).shape[1] == latent_size
+

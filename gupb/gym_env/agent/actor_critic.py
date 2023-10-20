@@ -7,7 +7,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
-from gupb.controller.noname.policy.cnn import CNNEncoder
+from gupb.controller.noname.policy import CNNEncoder, ActorCriticTorchPolicy
 
 
 class CustomFeatureExtractor(BaseFeaturesExtractor):
@@ -73,9 +73,13 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Callable[[float], float],
+        actor_arch: list[int],
+        critic_arch: list[int],
         *args,
         **kwargs,
     ):
+        self.actor_net_arch = actor_arch
+        self.critic_net_arch = critic_arch
         kwargs["ortho_init"] = False
         super().__init__(
             observation_space,
@@ -84,6 +88,7 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
             *args,
             **kwargs,
         )
+
         assert isinstance(self.action_space, spaces.Discrete), (
             "This policy network only works "
             "with spaces.Discrete action space (spaces.Box is not supported)"
@@ -91,11 +96,18 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
 
 
     def _build_mlp_extractor(self) -> None:
-        self.mlp_extractor = CustomNetwork(self.features_dim, self.action_space.n, self.action_space.n)
+        self.mlp_extractor = CustomNetwork(self.features_dim, self.actor_net_arch[-1], self.critic_net_arch[-1])
 
 
-def extract_atoms_from_ppo_model(model: PPO) -> tuple[CNNEncoder, th.nn.Module, th.nn.Module]:
+def extract_atoms_from_ppo_model(model: PPO) -> tuple[CNNEncoder, th.nn.Module, th.nn.Module, th.nn.Module]:
+    # encoder -> actor -> actor_latent -> action_net -> action_distribution -> action
+    #        -> critic -> critic_latent -> value_net -> value
     encoder = model.policy.features_extractor.cnn_encoder
     actor = model.policy.mlp_extractor.policy_net
     critic = model.policy.mlp_extractor.value_net
-    return encoder, actor, critic
+    action_net = model.policy.action_net
+    return encoder, actor, critic, action_net
+
+def PPO2TorchPolicy(model: PPO) -> ActorCriticTorchPolicy:
+    encoder, actor, critic, action_net = extract_atoms_from_ppo_model(model)
+    return ActorCriticTorchPolicy(encoder, actor, critic, action_net)
