@@ -34,24 +34,39 @@ class CustomNetwork(nn.Module):
     def __init__(
         self,
         feature_dim: int,
-        last_layer_dim_pi: int,
-        last_layer_dim_vf: int,
+        actor_arch: list[int],
+        critic_arch: list[int],
     ):
         super().__init__()
 
         # IMPORTANT:
         # Save output dimensions, used to create the distributions
-        self.latent_dim_pi = last_layer_dim_pi
-        self.latent_dim_vf = last_layer_dim_vf
 
         # Policy network
-        self.policy_net = nn.Sequential(
-            nn.Linear(feature_dim, last_layer_dim_pi), nn.ReLU()
-        )
+        self.actor_arch = [feature_dim] + actor_arch
+        self.critic_arch = [feature_dim] + critic_arch
+
+        # Policy network
+        policy_layers = []
+        for i in range(len(self.actor_arch) - 1):
+            policy_layers.append(nn.Linear(self.actor_arch[i], self.actor_arch[i+1]))
+            policy_layers.append(nn.ReLU())
+        self.policy_net = th.nn.Sequential(*policy_layers)
+
         # Value network
-        self.value_net = nn.Sequential(
-            nn.Linear(feature_dim, last_layer_dim_vf), nn.ReLU()
-        )
+        critic_layers = []
+        for i in range(len(self.critic_arch) - 1):
+            critic_layers.append(nn.Linear(self.critic_arch[i], self.critic_arch[i+1]))
+            critic_layers.append(nn.ReLU())
+        self.value_net = th.nn.Sequential(*critic_layers)
+    
+    @property 
+    def latent_dim_pi(self) -> int:
+        return self.actor_arch[-1]
+    
+    @property
+    def latent_dim_vf(self) -> int:
+        return self.critic_arch[-1]
 
     def forward(self, features: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         """
@@ -96,7 +111,7 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
 
 
     def _build_mlp_extractor(self) -> None:
-        self.mlp_extractor = CustomNetwork(self.features_dim, self.actor_net_arch[-1], self.critic_net_arch[-1])
+        self.mlp_extractor = CustomNetwork(self.features_dim, self.actor_net_arch, self.critic_net_arch)
 
 
 def extract_atoms_from_ppo_model(model: PPO) -> tuple[CNNEncoder, th.nn.Module, th.nn.Module, th.nn.Module]:

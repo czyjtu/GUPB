@@ -163,3 +163,27 @@ def test_if_actor_network_latent_size_is_independent_of_action_space(latent_size
     assert actor(th.rand(1, features_dim)).shape[1] == latent_size
     assert critic(th.rand(1, features_dim)).shape[1] == latent_size
 
+@pytest.mark.parametrize("critic_arch", [[1, 10, 256], [512, 128, 128, 64]])
+@pytest.mark.parametrize("actor_arch", [[1, 10, 256], [512, 128, 128, 64]])
+def test_if_actorcritic_network_architecture_is_applied(critic_arch, actor_arch):
+    features_dim = 64 # it is latent size for CNNEncoder    
+    env = MockEnv(gym.spaces.Box(low=0, high=1, shape=(3, 10, 10)), gym.spaces.Discrete(3))
+    model = PPO(
+        CustomActorCriticPolicy,
+        env,
+        policy_kwargs=dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=features_dim),
+            actor_arch=actor_arch,
+            critic_arch=critic_arch,
+        ),
+    )
+    encoder, actor, critic, action_net = extract_atoms_from_ppo_model(model)
+    assert isinstance(actor, th.nn.Sequential)
+    assert isinstance(critic, th.nn.Sequential)
+    actor_layers = [layer for layer in actor if isinstance(layer, th.nn.Linear)]
+    critic_layers = [layer for layer in critic if isinstance(layer, th.nn.Linear)]
+    assert len(actor_layers) == len(actor_arch)
+    assert len(critic_layers) == len(critic_arch)
+    assert [layer.out_features for layer in actor_layers]== actor_arch
+    assert [layer.out_features for layer in critic_layers] == critic_arch
