@@ -123,6 +123,6 @@ def extract_atoms_from_ppo_model(model: PPO) -> tuple[CNNEncoder, th.nn.Module, 
     action_net = model.policy.action_net
     return encoder, actor, critic, action_net
 
-def PPO2TorchPolicy(model: PPO) -> ActorCriticTorchPolicy:
+def PPO2TorchPolicy(model: PPO, eval=True) -> ActorCriticTorchPolicy:
     encoder, actor, critic, action_net = extract_atoms_from_ppo_model(model)
-    return ActorCriticTorchPolicy(encoder, actor, critic, action_net)
+    return ActorCriticTorchPolicy(encoder, actor, critic, action_net).eval()

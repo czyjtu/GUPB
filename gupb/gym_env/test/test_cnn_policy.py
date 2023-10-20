@@ -1,6 +1,6 @@
 import pytest 
 import torch as th 
-from gupb.controller.noname.policy import CNNEncoder
+from gupb.controller.noname.policy import ActorCriticTorchPolicy, CNNEncoder
 from gupb.gym_env.agent.actor_critic import CustomActorCriticPolicy, CustomFeatureExtractor, extract_atoms_from_ppo_model, PPO2TorchPolicy
 from stable_baselines3 import PPO
 from stable_baselines3.common.policies import ActorCriticPolicy
@@ -187,3 +187,26 @@ def test_if_actorcritic_network_architecture_is_applied(critic_arch, actor_arch)
     assert len(critic_layers) == len(critic_arch)
     assert [layer.out_features for layer in actor_layers]== actor_arch
     assert [layer.out_features for layer in critic_layers] == critic_arch
+
+
+def test_saving_and_loading_torch_policy(tmp_path):
+    features_dim = 64 # it is latent size for CNNEncoder    
+    env = MockEnv(gym.spaces.Box(low=0, high=1, shape=(3, 10, 10)), gym.spaces.Discrete(3))
+    model = PPO(
+        CustomActorCriticPolicy,
+        env,
+        policy_kwargs=dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=features_dim),
+            actor_arch=[1, 2, 3],
+            critic_arch=[1, 2, 3],
+        ),
+    )
+    torchPolicy = PPO2TorchPolicy(model).eval()
+    th.save(torchPolicy, tmp_path / "test_torch_policy")
+    loaded_policy = th.load(tmp_path / "test_torch_policy")
+
+    obs, _ = env.reset()
+    assert torchPolicy(th.Tensor(obs).unsqueeze(0)).numpy() == loaded_policy(th.Tensor(obs).unsqueeze(0)).numpy()
+    for key, value in torchPolicy.state_dict().items():
+        assert (value == loaded_policy.state_dict()[key]).all(), key
