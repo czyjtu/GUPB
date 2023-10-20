@@ -20,7 +20,8 @@ tiles_mapping = {
     "champion": 5,
     "knife": 6,
     "sword": 7,
-    "bow": 8,
+    "bow_unloaded": 8,
+    "bow_loaded": 8, # "bow_unloaded" and "bow_loaded" are the same tile
     "axe": 9,
     "amulet": 10,
     "potion": 11,
@@ -33,26 +34,30 @@ class GUPBEnvMatrix(ObservationWrapper):
     def _init_matrix(self, arena: Arena):
         self.arena_shape = arena.size[1], arena.size[0]
         for coords, tile in arena.terrain.items():
-            self.matrix[coords.y, coords.x] = tiles_mapping[tile.description().type]
+            self.matrix[coords[1], coords[0]] = tiles_mapping[tile.description().type]
         self.initial_arena = self.matrix.copy()
 
     def _fill_matrix(self, champion_knowledge: ChampionKnowledge):
         
         # Update Visible tiles
         for coords, tile_description in champion_knowledge.visible_tiles.items():
+
+            if tile_description.type == "menhir":
+                self.matrix[coords[1], coords[0]] = tiles_mapping[tile_description.type]
+                self.menhir_position = (coords[1], coords[0])
             
             if tile_description.loot:
-                self.matrix[coords.y, coords.x] = tiles_mapping[tile_description.loot.name]
+                self.matrix[coords[1], coords[0]] = tiles_mapping[tile_description.loot.name]
             
             if tile_description.consumable:
-                self.matrix[coords.y, coords.x] = tiles_mapping[tile_description.consumable.name]
+                self.matrix[coords[1], coords[0]] = tiles_mapping[tile_description.consumable.name]
             
             if tile_description.character:
-                self.matrix[coords.y, coords.x] = tiles_mapping["enymy"]
+                self.matrix[coords[1], coords[0]] = tiles_mapping["enymy"]
             
             if tile_description.effects:
                 if "mist" in tile_description.effects:
-                    self.matrix[coords.y, coords.x] = tiles_mapping["mist"]
+                    self.matrix[coords[1], coords[0]] = tiles_mapping["mist"]
 
         # Update Champion position
         self.matrix[champion_knowledge.position.y, champion_knowledge.position.x] = tiles_mapping["champion"]
@@ -64,10 +69,13 @@ class GUPBEnvMatrix(ObservationWrapper):
 
         # Reset decayed tiles
         self.matrix = np.where(self.decay_mask == 0, self.initial_arena, self.matrix)
+        # - but keep the menhir in place once discovered
+        if self.menhir_position:
+            self.matrix[self.menhir_position[0], self.menhir_position[1]] = tiles_mapping["menhir"]
 
         # Reset decay of visible tiles
         for coords, tile_description in champion_knowledge.visible_tiles.items():
-            self.decay_mask[coords.y, coords.x] = self.decay
+            self.decay_mask[coords[1], coords[0]] = self.decay
 
 
     def __init__(self, env: GUPBEnv, decay=0):
@@ -82,10 +90,12 @@ class GUPBEnvMatrix(ObservationWrapper):
         self.arena_id = None
         self.arena_shape = None
         self.initial_arena = None
+        self.menhir_position = None
 
         # Controls the memory of the agent. Decay of n, means that the agent will assume that
         # the item is still there for n steps, even when it's not visible. Note that the decay
         # of 1 means no memory at all, the higher the decay, the longer the memory.
+        # TODO Could we use a different decay for dynamic characters and a different one for static items?
         self.decay = decay
         self.decay_mask = np.zeros(LARGEST_ARENA_SHAPE, np.int8)
 
