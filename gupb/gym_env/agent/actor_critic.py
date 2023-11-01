@@ -15,7 +15,6 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
         # observation.shape == CxHxW
         self.cnn_encoder = CNNEncoder(observation_space.shape[0], features_dim)
-        
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.cnn_encoder(observations)
