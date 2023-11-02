@@ -1,7 +1,8 @@
 import numpy as np
-import gym
-import gym.spaces
-from gym import ObservationWrapper
+import gymnasium as gym
+import gymnasium.spaces
+from gymnasium import ObservationWrapper, spaces
+gymnasium.wrappers
 
 
 from gupb.gym_env.gym_env import GUPBEnv
@@ -11,23 +12,41 @@ from gupb.model.characters import ChampionKnowledge
 
 LARGEST_ARENA_SHAPE = (100, 100)
 
+MAX_TILE_ID = 50
+
 tiles_mapping = {
-    "out": 0,
-    "land": 1,
-    "sea": 2,
-    "wall": 3,
-    "menhir": 4,
-    "champion": 5,
-    "knife": 6,
-    "sword": 7,
-    "bow_unloaded": 8,
-    "bow_loaded": 8, # "bow_unloaded" and "bow_loaded" are the same tile
-    "axe": 9,
-    "amulet": 10,
-    "potion": 11,
-    "enymy": 12,
-    "mist": 13,
+    "mist": 0,
+
+    "out": 3,
+    "land": 4,
+    "sea": 5,
+    "wall": 6,
+
+    "knife": 10,
+    "sword": 11,
+    "bow_unloaded": 12,
+    "bow_loaded": 13, # "bow_unloaded" and "bow_loaded" are the same tile
+    "axe": 14,
+    "amulet": 15,
+
+    "enymy": 17,
+    "potion": 19,
+
+    "champion": 25,
+
+    "menhir": MAX_TILE_ID,# don't change this value
 }
+
+class ImageWrapper(ObservationWrapper):
+    def __init__(self, env: gym.Env):
+        super().__init__(env)
+        assert isinstance(env.observation_space, gym.spaces.Box)
+        self.observation_space = gym.spaces.Box(
+            low=0, high=1, shape=(1, *env.observation_space.shape), dtype=np.float32
+        )
+
+    def observation(self, observation: np.ndarray):
+        return (observation[None, ...] / MAX_TILE_ID).astype(np.float32)
 
 class GUPBEnvMatrix(ObservationWrapper):
 
@@ -84,7 +103,7 @@ class GUPBEnvMatrix(ObservationWrapper):
         # The biggest map up-to-date is 100x100, hence the shape
         # TODO: Is it enough? Can we get agent health and facing direction?
         self.observation_space = gym.spaces.Box(
-            low=0, high=len(tiles_mapping.keys()), shape=LARGEST_ARENA_SHAPE, dtype=np.int8
+            low=0, high=max(tiles_mapping.values()), shape=LARGEST_ARENA_SHAPE, dtype=np.int8
         )
 
         self.arena_id = None
