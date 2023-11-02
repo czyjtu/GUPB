@@ -11,10 +11,10 @@ from gupb.controller.noname.policy import CNNEncoder, ActorCriticTorchPolicy
 
 
 class CustomFeatureExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space: spaces.Box, features_dim: int = 256):
+    def __init__(self, observation_space: spaces.Box, features_dim: int, architecture: List[int]):
         super().__init__(observation_space, features_dim)
         # observation.shape == CxHxW
-        self.cnn_encoder = CNNEncoder(observation_space.shape[0], features_dim)
+        self.cnn_encoder = CNNEncoder(observation_space.shape[0], features_dim, architecture)
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.cnn_encoder(observations)

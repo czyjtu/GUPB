@@ -16,16 +16,19 @@ def ConvBlockNormalizeDrop(in_channels: int, n_filters: int, activation: tp.Lite
     )
 
 class CNNEncoder(th.nn.Module):
-    def __init__(self, channels: int, latent_size: int, *args, **kwargs) -> None:
+    def __init__(self, channels: int, latent_size: int, arch: list[int], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.conv1 = ConvBlockNormalizeDrop(channels, 8, "relu", 0.2)
-        self.conv2 = ConvBlockNormalizeDrop(8, 32, "relu", 0.2, gap=True)
-        self.linear = th.nn.Linear(32, latent_size)
+        convs = []
+        for n_filters in arch:
+            convs.append(ConvBlockNormalizeDrop(channels, n_filters, "relu", 0.05))
+            channels = n_filters
+        convs.append(
+            ConvBlockNormalizeDrop(channels, latent_size, "relu", 0, gap=True)
+        )
+        self.convs = th.nn.Sequential(*convs)
 
     def forward(self, X: th.Tensor) -> th.Tensor:
-        X = self.conv1(X)
-        X = self.conv2(X)
+        X = self.convs(X)
         X = X.view(X.shape[0], -1)
-        X = self.linear(X)
         return X
     

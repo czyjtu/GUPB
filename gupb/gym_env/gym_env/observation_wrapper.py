@@ -42,11 +42,11 @@ class ImageWrapper(ObservationWrapper):
         super().__init__(env)
         assert isinstance(env.observation_space, gym.spaces.Box)
         self.observation_space = gym.spaces.Box(
-            low=0, high=1, shape=(1, *env.observation_space.shape), dtype=np.float32
+            low=0, high=1, shape=env.observation_space.shape, dtype=np.float32
         )
 
     def observation(self, observation: np.ndarray):
-        return (observation[None, ...] / MAX_TILE_ID).astype(np.float32)
+        return (observation / MAX_TILE_ID).astype(np.float32)
 
 class GUPBEnvMatrix(ObservationWrapper):
 
