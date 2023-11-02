@@ -73,12 +73,14 @@ class EnvConfig:
 
 
 def run_game(game, stop_event: threading.Event):
-    while not stop_event.is_set() and not game.finished:
+    while not stop_event.is_set():
+        if game.finished:
+            stop_event.set()
         game.cycle()
 
 
 class GUPBEnv(gym.Env):
-    OBSERVATION_TIMEOUT = 5.0
+    OBSERVATION_TIMEOUT = 1
 
     def __init__(
         self, 
@@ -88,6 +90,7 @@ class GUPBEnv(gym.Env):
         self.controllers_order = list(range(len(self.config.controllers) + 1)) # index 0 = queue controller
         self.game_thread = None
         self.game_no = 0
+        self._last_obs = None
 
 
     def _new_game(self, queue_controller: QueueController):
@@ -115,7 +118,7 @@ class GUPBEnv(gym.Env):
 
     @property
     def action_space(self):
-        return gym.spaces.Discrete(3)
+        return gym.spaces.Discrete(4)
     
     @property
     def observation_space(self):
@@ -127,7 +130,7 @@ class GUPBEnv(gym.Env):
             raise RuntimeError("ThreadController has no current map!")
         return {"arena": current_map, "view": knowledge}
 
-    def reset(self):
+    def reset(self, *args, **kwargs):
         if self.game_thread is not None:
             self.stop_event.set()
             self.game_thread.join()
@@ -139,18 +142,25 @@ class GUPBEnv(gym.Env):
         self.stop_event = threading.Event()
         self.game_thread = threading.Thread(target=run_game, args=(new_game, self.stop_event))
         self.game_thread.start()
-
         return self._wait_and_get_observation(), {}
 
     def step(self, action: int):
         game_action = AgentAction2Action[AgentAction(action)]
+        done = False
         self.action_queue.put(game_action)
-        
-        obs = self._wait_and_get_observation()
-        reward = 1 
-        done = False # TODO
+        try:
+            obs = self._wait_and_get_observation()
+        except queue.Empty:
+            if self.stop_event.is_set():
+                done = True
+                obs = self._last_obs
+            else:
+                raise queue.Empty
+            
+        reward = 0.5 
         truncated = False 
         info = {}
+        self._last_obs = obs
         return obs, reward, done, truncated, info
 
     def render(self, mode='human'):

@@ -6,7 +6,7 @@ from gupb.model.characters import ChampionKnowledge
 
 
 class QueueController(controller.Controller):
-    ACTION_TIMEOUT = 2.0
+    ACTION_TIMEOUT = 300 # TODO: make it configurable, change to higher value during traning
 
     def __init__(self, action_queue, knowledge_queue) -> None:
         self.action_queue: queue.Queue = action_queue
