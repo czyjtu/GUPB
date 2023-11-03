@@ -17,6 +17,8 @@ gymnasium==0.29.1
 pytest==7.4.2
 pytest-timeout
 stable-baselines3==2.1.0
+tensorboard==2.14.1
 torch==2.1.0
 torchaudio==2.1.0
 torchvision==0.16.0
+wandb==0.15.12

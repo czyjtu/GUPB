@@ -79,7 +79,6 @@ def main(config: TrainingConfig, run):
 if __name__ == "__main__":
     run = wandb.init(
         project="gupb", 
-        entity="czyjtu", 
         name=RUN_ID,
         sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
         save_code=True,  
