@@ -35,7 +35,7 @@ class Runner:
         self._last_initial_positions: Optional[list[coordinates.Coords]] = None
 
     def run(self) -> None:
-        for i in trange(self.runs_no, desc="Playing games"):
+        for i in range(self.runs_no):
             verbose_logger.info(f"Starting game number {i + 1}.")
             GameStartReport(i + 1).log(logging.INFO)
             self.run_game(i)
