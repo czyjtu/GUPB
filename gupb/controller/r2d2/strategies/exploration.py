@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Dict
 
 from typing import Any
 from gupb.controller.r2d2.knowledge import R2D2Knowledge
@@ -14,7 +15,7 @@ class ExplorationStrategy(Strategy):
     def __init__(self):
         self.destination = None
 
-    def decide(self, knowledge: R2D2Knowledge) -> Action:
+    def decide(self, knowledge: R2D2Knowledge, items_ranking: Dict) -> Action:
 
         champion_position = knowledge.champion_knowledge.position
         
@@ -23,7 +24,7 @@ class ExplorationStrategy(Strategy):
             self.destination = choose_destination(knowledge.world_state.matrix, knowledge.world_state.explored)
         
         # Update the destination if you see any items (weapons or potions)
-        tempting_destination = scan_for_items(knowledge)
+        tempting_destination = scan_for_items(knowledge, items_ranking)
         if tempting_destination:
             self.destination = tempting_destination
 
@@ -45,7 +46,7 @@ class MenhirStrategy(Strategy):
         self.menhir_eps = menhir_eps
         self.destination = None
 
-    def decide(self, knowledge: R2D2Knowledge) -> Action:
+    def decide(self, knowledge: R2D2Knowledge, items_ranking: Dict) -> Action:
 
         champion_position = knowledge.champion_knowledge.position
         menhir_position = knowledge.world_state.menhir_position
@@ -60,7 +61,7 @@ class MenhirStrategy(Strategy):
 
         # Update the destination if you see any items (weapons or potions), but with a distance constraint
         # TODO add distance constraint
-        tempting_destination = scan_for_items(knowledge, self.menhir_eps)
+        tempting_destination = scan_for_items(knowledge, items_ranking, self.menhir_eps)
         if tempting_destination:
             self.destination = tempting_destination
 

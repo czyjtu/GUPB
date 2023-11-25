@@ -15,10 +15,11 @@ from .r2d2_state_machine import R2D2StateMachine
 from .r2d2_helpers import *
 from .utils import *
 
+from typing import Dict
 
 class RecklessRoamingDancingDruid(controller.Controller):
     
-    def __init__(self, first_name: str, decay: int = 1, menhir_eps=3):
+    def __init__(self, first_name: str, items_ranking: Dict, decay: int = 1, menhir_eps: int = 3):
         self.first_name: str = first_name
 
         # Controls the memory of the agent. Decay of n, means that the agent will assume that
@@ -27,6 +28,7 @@ class RecklessRoamingDancingDruid(controller.Controller):
         # TODO Could we use a different decay for dynamic characters and a different one for static items?  
 
         self.decay: int = decay
+        self.items_ranking = items_ranking
         self.world_state: WorldState = None # initialize in reset
 
         # Define a state machine to manage the agent's behaviour
@@ -126,19 +128,19 @@ class RecklessRoamingDancingDruid(controller.Controller):
             # exploration
             if (
                 self.world_state.menhir_position and (
-                    items_ranking[r2_knowledge.current_weapon] < items_ranking["knife"] or
+                    self.items_ranking[r2_knowledge.current_weapon] < self.items_ranking["knife"] or
                     r2_knowledge.world_state.mist_present or
                     r2_knowledge.world_state.step_counter > MAX_STEPS_EXPLORING
                 )
             ):
-                next_action = self.menhir_strategy.decide(r2_knowledge)
+                next_action = self.menhir_strategy.decide(r2_knowledge, self.items_ranking)
             else:
-                next_action = self.exploration_strategy.decide(r2_knowledge)
+                next_action = self.exploration_strategy.decide(r2_knowledge, self.items_ranking)
 
             # If walked into a worse weapon, drop it
             dropped_weapon = knowledge.visible_tiles[self.champion_position].loot
             if dropped_weapon:
-                if items_ranking[dropped_weapon.name] < items_ranking[r2_knowledge.current_weapon]:
+                if self.items_ranking[dropped_weapon.name] < self.items_ranking[r2_knowledge.current_weapon]:
                     return characters.Action.STEP_BACKWARD
         except Exception as e:
             # import traceback

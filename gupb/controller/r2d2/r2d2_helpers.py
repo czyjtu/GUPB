@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 
 import numpy as np
 from pathfinding.finder.bi_a_star import BiAStarFinder
@@ -26,7 +26,7 @@ def walking_distance(start: Coords, end: Coords, matrix_walkable: np.ndarray) ->
     return len(path) - 1
 
 
-def scan_for_items(knowledge: R2D2Knowledge, distance: int = 1000) -> Optional[Coords]:
+def scan_for_items(knowledge: R2D2Knowledge, items_ranking: Dict, distance: int = 1000) -> Optional[Coords]:
     """
     Scan for items in the visible tiles. If there are more than one, choose acord to the items ranking.
     If there are no items in the visible tiles, return None.
