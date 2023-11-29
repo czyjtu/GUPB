@@ -33,7 +33,9 @@ class Game(statemachine.StateMachine):
             to_spawn: list[controller.Controller],
             menhir_position: Optional[coordinates.Coords] = None,
             initial_champion_positions: Optional[list[coordinates.Coords]] = None,
+            r2d2_weapon: characters.weapons.Weapon = None,
     ) -> None:
+        self.r2d2_weapon = r2d2_weapon
         self.game_no: int = game_no
         self.arena: arenas.Arena = arenas.Arena.load(arena_name)
         self.arena.spawn_menhir(menhir_position)
@@ -77,6 +79,9 @@ class Game(statemachine.StateMachine):
         for controller_to_spawn, coords in zip(to_spawn, self.initial_champion_positions):
             champion = self.arena.spawn_champion_at(coords)
             champion.assign_controller(controller_to_spawn)
+            if champion.controller.name == "RecklessRoamingDancingDruid_R2D2":
+                # Hack R2D2 weapons
+                champion.weapon = self.r2d2_weapon
             champions.append(champion)
             verbose_logger.debug(f"{champion.tabard.value} champion for {controller_to_spawn.name}"
                                  f" spawned at {coords} facing {champion.facing}.")

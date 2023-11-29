@@ -34,14 +34,14 @@ class Runner:
         self._last_menhir_position: Optional[coordinates.Coords] = None
         self._last_initial_positions: Optional[list[coordinates.Coords]] = None
 
-    def run(self) -> None:
+    def run(self, r2d2_weapon) -> None:
         for i in range(self.runs_no):
             verbose_logger.info(f"Starting game number {i + 1}.")
             GameStartReport(i + 1).log(logging.INFO)
-            self.run_game(i)
+            self.run_game(i, r2d2_weapon)
 
     # noinspection PyBroadException
-    def run_game(self, game_no: int) -> None:
+    def run_game(self, game_no: int, r2d2_weapon) -> None:
         arena = random.choice(self.arenas)
         verbose_logger.debug(f"Randomly picked arena: {arena}.")
         RandomArenaPickReport(arena).log(logging.DEBUG)
@@ -51,6 +51,7 @@ class Runner:
                 game_no=game_no,
                 arena_name=arena,
                 to_spawn=self.controllers,
+                r2d2_weapon=r2d2_weapon,
             )
         else:
             self.controllers = self.controllers[1:] + [self.controllers[0]]

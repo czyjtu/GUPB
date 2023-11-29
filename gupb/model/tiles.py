@@ -64,10 +64,14 @@ class Tile(ABC):
     def enter(self, champion: characters.Champion) -> None:
         self.character = champion
         if self.loot:
-            champion.weapon, self.loot = self.loot, champion.weapon if champion.weapon.droppable() else None
-            verbose_logger.debug(
-                f"Champion {champion.controller.name} picked up a {champion.weapon.description().name}.")
-            ChampionPickedWeaponReport(champion.controller.name, champion.weapon.description().name).log(logging.DEBUG)
+            # R2D2 does not pick up weapons
+            if champion.controller.name == "RecklessRoamingDancingDruid_R2D2":
+                pass
+            else:
+                champion.weapon, self.loot = self.loot, champion.weapon if champion.weapon.droppable() else None
+                verbose_logger.debug(
+                    f"Champion {champion.controller.name} picked up a {champion.weapon.description().name}.")
+                ChampionPickedWeaponReport(champion.controller.name, champion.weapon.description().name).log(logging.DEBUG)
         if self.consumable:
             self.consumable.apply_to(champion)
             verbose_logger.debug(
