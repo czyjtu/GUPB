@@ -1,6 +1,7 @@
 from gupb import controller
-from gupb.controller.r2d2.knowledge import R2D2Knowledge, WorldState, decide_whether_attack, get_all_enemies, get_cut_positions, get_threating_enemies_map
+from gupb.controller.r2d2.knowledge import R2D2Knowledge, WorldState
 from gupb.controller.r2d2.navigation import get_move_towards_target
+from gupb.controller.r2d2.strategies.attack import ChaseWeaker
 from gupb.controller.r2d2.strategies.exploration import MenhirFinder, MenhirObserver, WeaponFinder
 from gupb.controller.r2d2.strategies.potion import PotionPicker, get_nearby_potions
 from gupb.controller.r2d2.strategies.runaway import Runaway
@@ -12,10 +13,12 @@ from gupb.model.arenas import Arena
 from gupb.model.characters import ChampionKnowledge
 from gupb.model.coordinates import Coords
 
+
 from .r2d2_state_machine import R2D2StateMachine
 from .r2d2_helpers import *
 from .utils import *
 
+print(walking_distance(Coords(0, 0), Coords(0, 0), np.array([[1, 1], [1, 1]])))
 
 class RecklessRoamingDancingDruid(controller.Controller):
     
@@ -52,6 +55,9 @@ class RecklessRoamingDancingDruid(controller.Controller):
 
     def __hash__(self) -> int:
         return hash(self.first_name)
+    
+    def _print(self, *args):
+        print(*args)
     
     def _attack_is_effective(self, knowledge: R2D2Knowledge) -> bool:
         """
@@ -115,21 +121,37 @@ class RecklessRoamingDancingDruid(controller.Controller):
                 self.arena,
                 knowledge.visible_tiles[self.champion_position].character.weapon.name
             )
-
-            # priorities
+            # - if there is a potion nearby, pick it up
+            potions = get_nearby_potions(r2_knowledge)
+            if len(potions) > 0:
+                action = PotionPicker().decide(r2_knowledge, self.state_machine)
+                self._print("pick potion", action)
+                return action
+            self._print("potions count", len(potions))
             # - if the mist is coming, go to the menhir
             if r2_knowledge.world_state.mist_present:
-                return MistAvoider().decide(r2_knowledge)
+                action = MistAvoider().decide(r2_knowledge)
+                self._print("mist is coming", action)
+                return action
+            
+
+            # priorities
             # - if the enemy is in the range of the weapon, attack
             if decide_whether_attack(r2_knowledge):
+                self._print("attack")
                 return characters.Action.ATTACK
             # - if there is a threat nearby, runaway
             if self._is_threat_nearby(r2_knowledge):
-                return Runaway().decide(r2_knowledge, self.state_machine)
-            # - if there is a potion nearby, pick it up
-            if len(get_nearby_potions(r2_knowledge)) > 0:
-                return PotionPicker().decide(r2_knowledge, self.state_machine)
+                action = Runaway().decide(r2_knowledge, self.state_machine)
+                self._print("runaway", action)
+                return action
             
+            target_enemy = get_weaker_enemy_in_range(r2_knowledge, max_distance=2)
+            if target_enemy:
+                action = ChaseWeaker(target_enemy).decide(r2_knowledge, self.state_machine)
+                self._print("chasing enemy", action, target_enemy[0], r2_knowledge.champion_knowledge.position)
+                return action
+
             # exploration
             if (
                 self.world_state.menhir_position and (
@@ -148,9 +170,9 @@ class RecklessRoamingDancingDruid(controller.Controller):
                 if items_ranking[dropped_weapon.name] < items_ranking[r2_knowledge.current_weapon]:
                     return characters.Action.STEP_BACKWARD
         except Exception as e:
-            # import traceback
-            # print(e)
-            # traceback.print_exc()
+            import traceback
+            print(e)
+            traceback.print_exc()
             return characters.Action.TURN_RIGHT
 
 
@@ -160,11 +182,15 @@ class RecklessRoamingDancingDruid(controller.Controller):
         """
         Check if there is a threat nearby.
         """
-        
         threating_coords = get_threating_enemies_map(knowledge)
+        threating_enemies_cut_positions = set()
+        for coord, descr in threating_coords:
+            cuts = get_cut_positions(coord, descr, knowledge)
+            threating_enemies_cut_positions.update(cuts)
+        is_in_cut_range = knowledge.champion_knowledge.position in threating_enemies_cut_positions
         my_coord = knowledge.champion_knowledge.position
         # return true if there is a threat in the range of 4 walking distance
-        return any([walking_distance(my_coord, coords, knowledge.world_state.matrix_walkable) <= 4 for coords, enemy in threating_coords])
+        return is_in_cut_range or any([walking_distance(my_coord, coords, knowledge.world_state.matrix_walkable) <= 2 for coords, enemy in threating_coords])
         
 
     def praise(self, score: int) -> None:
