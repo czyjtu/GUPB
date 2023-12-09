@@ -26,7 +26,6 @@ def get_move_towards_target(
     if action is None:
         action = _try_to_find_path(current_position, target_coords, knowledge.world_state.matrix_walkable_no_enymy, facing, allow_moonwalk) 
     if action is None:
-        print("No path found, turning right")
         action = characters.Action.TURN_RIGHT
     return action, False
 

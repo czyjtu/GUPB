@@ -48,10 +48,8 @@ class ChaseWeaker(Strategy):
         cut_coordinates = [coords for coords, facing in cut_positions]
         closest_position, dist = find_closest_position(my_coords, cut_coordinates, knowledge)
         if dist == 0:
-            print("dist 0", closest_position)
             return get_closest_turn(my_description.facing, coord2facing[closest_position])
         cut_coordinates = [coords for coords in cut_coordinates if walking_distance(my_coords, coords, knowledge.world_state.matrix_walkable_no_enymy) == dist]
-        print("closest position, ", closest_position)
         return get_move_towards_target(my_coords, closest_position, knowledge, allow_moonwalk=True)[0]
     
 def get_closest_turn(current_facing: Facing, target_facing: Facing) -> Action:
