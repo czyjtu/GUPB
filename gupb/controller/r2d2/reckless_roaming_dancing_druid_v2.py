@@ -1,6 +1,6 @@
 from gupb import controller
 from gupb.controller.r2d2.knowledge import R2D2Knowledge, WorldState
-from gupb.controller.r2d2.navigation import get_move_towards_target
+from gupb.controller.r2d2.navigation import get_move_towards_target, _try_to_find_path
 from gupb.controller.r2d2.strategies.attack import ChaseWeaker
 from gupb.controller.r2d2.strategies.exploration import MenhirFinder, MenhirObserver, WeaponFinder
 from gupb.controller.r2d2.strategies.potion import PotionPicker, get_nearby_potions
@@ -18,7 +18,6 @@ from .r2d2_state_machine import R2D2StateMachine
 from .r2d2_helpers import *
 from .utils import *
 
-print(walking_distance(Coords(0, 0), Coords(0, 0), np.array([[1, 1], [1, 1]])))
 
 class RecklessRoamingDancingDruid(controller.Controller):
     
@@ -46,6 +45,7 @@ class RecklessRoamingDancingDruid(controller.Controller):
 
         self.exploration_strategy = ExplorationStrategy()
         self.menhir_strategy = MenhirStrategy(menhir_eps)
+        self.chase_strategy = None 
 
 
     def __eq__(self, other: object) -> bool:
@@ -57,8 +57,9 @@ class RecklessRoamingDancingDruid(controller.Controller):
         return hash(self.first_name)
     
     def _print(self, *args):
-        print(*args)
-    
+        # print(*args)
+        pass 
+
     def _attack_is_effective(self, knowledge: R2D2Knowledge) -> bool:
         """
         Check if the attack is effective. The attack is effective if the enemy is in the range of the weapon.
@@ -128,29 +129,45 @@ class RecklessRoamingDancingDruid(controller.Controller):
                 self._print("pick potion", action)
                 return action
             self._print("potions count", len(potions))
-            # - if the mist is coming, go to the menhir
-            if r2_knowledge.world_state.mist_present:
-                action = MistAvoider().decide(r2_knowledge)
-                self._print("mist is coming", action)
-                return action
             
 
             # priorities
             # - if the enemy is in the range of the weapon, attack
             if decide_whether_attack(r2_knowledge):
+                if self.chase_strategy:
+                    self.chase_strategy.update_state(r2_knowledge)
+                else:
+                    target_enemy = get_weaker_enemy_in_range(r2_knowledge, max_distance=0)
+                    if target_enemy:
+                        self._print("chasing the enemy after attack")
+                        self.chase_strategy = ChaseWeaker(target_enemy)
                 self._print("attack")
                 return characters.Action.ATTACK
+            # - if the mist is coming, go to the menhir
+            if r2_knowledge.world_state.mist_present:
+                action = MistAvoider().decide(r2_knowledge)
+                self._print("mist is coming", action)
+                return action
             # - if there is a threat nearby, runaway
             if self._is_threat_nearby(r2_knowledge):
                 action = Runaway().decide(r2_knowledge, self.state_machine)
                 self._print("runaway", action)
                 return action
             
-            target_enemy = get_weaker_enemy_in_range(r2_knowledge, max_distance=2)
-            if target_enemy:
-                action = ChaseWeaker(target_enemy).decide(r2_knowledge, self.state_machine)
-                self._print("chasing enemy", action, target_enemy[0], r2_knowledge.champion_knowledge.position)
+            # chase strategy 
+            if self.chase_strategy and self.chase_strategy.is_applicable(r2_knowledge):
+                self.chase_strategy.update_state(r2_knowledge)
+                action = self.chase_strategy.decide(r2_knowledge, self.state_machine)
+                self._print("chasing enemy", action, target_enemy[0], r2_knowledge.champion_knowledge.position, r2_knowledge.champion_knowledge.visible_tiles[r2_knowledge.champion_knowledge.position].character.facing)
                 return action
+            else:
+                self.chase_strategy = None
+                target_enemy = get_weaker_enemy_in_range(r2_knowledge, max_distance=4)
+                if target_enemy:
+                    self.chase_strategy = ChaseWeaker(target_enemy)
+                    action = self.chase_strategy.decide(r2_knowledge, self.state_machine)
+                    self._print("chasing enemy", action, target_enemy[0], r2_knowledge.champion_knowledge.position, r2_knowledge.champion_knowledge.visible_tiles[r2_knowledge.champion_knowledge.position].character.facing)
+                    return action
 
             # exploration
             if (
@@ -170,10 +187,10 @@ class RecklessRoamingDancingDruid(controller.Controller):
                 if items_ranking[dropped_weapon.name] < items_ranking[r2_knowledge.current_weapon]:
                     return characters.Action.STEP_BACKWARD
         except Exception as e:
-            import traceback
-            print(e)
-            traceback.print_exc()
-            return characters.Action.TURN_RIGHT
+            # import traceback
+            # print(e)
+            # traceback.print_exc()
+            return characters.Action.ATTACK
 
 
         return next_action

@@ -7,7 +7,6 @@ from pathfinding.finder.bi_a_star import BiAStarFinder
 from pathfinding.finder.dijkstra import DijkstraFinder
 from pathfinding.core.diagonal_movement import DiagonalMovement
 
-
     
     # Rest of the code...
 def get_move_towards_target(
@@ -17,7 +16,21 @@ def get_move_towards_target(
     allow_moonwalk: bool = False,
 ) -> tuple[characters.Action, bool]:
     "Returns the next action to move to the target_coords and a flag indicating if the target was reached"
-    def _try_to_find_path(start_coords: Coords, target_coords: Coords, matrix_walkable: np.ndarray, allow_moonwalk: bool) -> characters.Action | None:
+    
+    # If already in 
+    if current_position == target_coords:
+        return characters.Action.TURN_LEFT, True   # Always better turn than do nothing
+        
+    facing = knowledge.champion_knowledge.visible_tiles[current_position].character.facing
+    action = _try_to_find_path(current_position, target_coords, knowledge.world_state.matrix_walkable, facing, allow_moonwalk)
+    if action is None:
+        action = _try_to_find_path(current_position, target_coords, knowledge.world_state.matrix_walkable_no_enymy, facing, allow_moonwalk) 
+    if action is None:
+        print("No path found, turning right")
+        action = characters.Action.TURN_RIGHT
+    return action, False
+
+def _try_to_find_path(start_coords: Coords, target_coords: Coords, matrix_walkable: np.ndarray, facing: characters.Facing, allow_moonwalk: bool) -> characters.Action | None:
         grid = Grid(matrix=matrix_walkable)
         start = grid.node(*start_coords)
         end = grid.node(*target_coords)
@@ -31,7 +44,6 @@ def get_move_towards_target(
 
         # - Move to the next tile
         delta = next_tile_coords - start_coords
-        facing = knowledge.champion_knowledge.visible_tiles[start_coords].character.facing
         if allow_moonwalk:
             # print("delta, facing: ", delta, facing)
             if facing.value == characters.Facing.UP.value:
@@ -99,16 +111,4 @@ def get_move_towards_target(
             if delta == characters.Facing.DOWN.value:
                 return characters.Action.TURN_LEFT
             return characters.Action.TURN_RIGHT
-    
-    # If already in 
-    if current_position == target_coords:
-        return characters.Action.TURN_RIGHT, True   # Always better turn than do nothing
         
-    action = _try_to_find_path(current_position, target_coords, knowledge.world_state.matrix_walkable, allow_moonwalk)
-    if action is None:
-        action = _try_to_find_path(current_position, target_coords, knowledge.world_state.matrix_walkable_no_enymy, allow_moonwalk=True) 
-    if action is None:
-        action = characters.Action.TURN_RIGHT
-    return action, False
-   
-    
